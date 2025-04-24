@@ -1,25 +1,30 @@
 # Use Ubuntu as the base image
-FROM ubuntu:latest
+name: Docker Image Build and Push
 
-# Install Python, pip, and venv
-RUN apt update && apt install -y python3 python3-pip python3-venv
+on:
+  push:
+    branches:
+      - main  # Trigger on push to the main branch
 
-# Set the working directory inside the container
-WORKDIR /app
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-# Copy dependency file
-COPY requirements.txt .
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3  # Use the latest stable version
 
-# Create and activate a virtual environment, then install dependencies
-RUN python3 -m venv venv && \
-    . venv/bin/activate && \
-    pip install --no-cache-dir -r requirements.txt
+      - name: Log in to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKERTOKEN }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-# Copy application code
-COPY app ./app
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest .
 
-# Expose the port FastAPI will run on
-EXPOSE 8000
+      - name: Push Docker Image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
 
-# Run the FastAPI server using Uvicorn inside the virtual environment
-CMD ["/app/venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      - name: Logout from Docker Hub
+        run: docker logout  # Security best practice
